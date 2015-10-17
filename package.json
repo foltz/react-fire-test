@@ -1,0 +1,16 @@
+{
+  "devDependencies": {},
+  "engines": {
+    "node": ">=4.1.2"
+  },
+  "name": "react-fire-test",
+  "private": true,
+  "scripts": {
+    "build": "gulp build",
+    "test": "gulp archive && mocha --reporter spec --timeout 5000"
+  },
+  "version": "0.0.1",
+  "dependencies": {
+    "express": "^4.13.3"
+  }
+}

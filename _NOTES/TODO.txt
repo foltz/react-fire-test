@@ -1,0 +1,6 @@
+bootstrap validator & boostrap react....
+
+http://react-bootstrap.github.io/components.html#input
+http://1000hz.github.io/bootstrap-validator/#validator-events
+
+ - try capturing an invalid event and targeting the help-node and adding text....
