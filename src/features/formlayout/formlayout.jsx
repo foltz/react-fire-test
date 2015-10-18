@@ -12,7 +12,7 @@ class Form extends React.Component {
 	}
 	getChildContext () {
 		return {
-			validator: "valid yo!"
+			getValidator: this.getValidator
 		}
 	}
 
@@ -22,7 +22,7 @@ class Form extends React.Component {
 }
 
 Form.childContextTypes = {
-	validator: React.PropTypes.string.isRequired
+	getValidator: React.PropTypes.func.isRequired
 };
 
 class Layout extends React.Component {
@@ -68,7 +68,7 @@ class Field extends React.Component {
 				<div>
 					<div>label: {this.context.labelLayout}</div>
 					<div>input: {this.context.inputLayout}</div>
-					<div>validator: {this.context.validator}</div>
+					<div>validator: {this.context.getValidator()}</div>
 					<div>{this.props.children}</div>
 				</div>
 		)
@@ -77,13 +77,13 @@ class Field extends React.Component {
 
 Field.contextTypes = {
 
-	validator: React.PropTypes.string.isRequired,
+	getValidator: React.PropTypes.func.isRequired,
 
 	labelLayout: React.PropTypes.string.isRequired,
 	inputLayout: React.PropTypes.string.isRequired
 };
 
-class BsForm extends React.Component {
+class App extends React.Component {
 
 
 	render () {
@@ -118,4 +118,4 @@ class BsForm extends React.Component {
 	}
 }
 
-ReactDOM.render(<BsForm />, document.getElementById('bsForm'));
+ReactDOM.render(<App />, document.getElementById('app'));
