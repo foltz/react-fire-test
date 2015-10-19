@@ -127,7 +127,7 @@ class Field extends React.Component {
 	setMessage(msg) {
 		this.setState({message: msg})
 	}
-	
+
 	onChange(e) {
 
 		var value = e.target.value;

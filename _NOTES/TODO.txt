@@ -1,6 +1,9 @@
-bootstrap validator & boostrap react....
+ VALIDATION:
+ - setup the error colors and icons for invalid elements...
+ - configure event to trigger onchange or onblur - different rules for both?
+ - setup the ability to do server-side
+ - setup the ability to do multi-field.
+ - setup overall form validation status and visual indicator
 
-http://react-bootstrap.github.io/components.html#input
-http://1000hz.github.io/bootstrap-validator/#validator-events
-
- - try capturing an invalid event and targeting the help-node and adding text....
+ - MOVE IT INTO GULP-BABEL-TEST...
+ - START BUILDING the onboarding form!!!!
