@@ -63,13 +63,47 @@ Layout.childContextTypes = {
 
 class Field extends React.Component {
 
-	render() {
+	newRender() {
 		return (
 				<div>
 					<div>label: {this.context.labelLayout}</div>
 					<div>input: {this.context.inputLayout}</div>
 					<div>validator: {this.context.getValidator()}</div>
 					<div>{this.props.children}</div>
+
+
+					<div className="form-group">
+
+						<label className={classNames("control-label", this.context.labelLayout)}>
+							<span>{this.props.label}</span>
+						</label>
+
+						<div className="{this.context.inputLayout}">
+							<input type="email" className="form-control" required label="{this.props.label}" />
+							<span class="help-block">
+								<div>test</div>
+							</span>
+						</div>
+					</div>
+
+				</div>
+		)
+	}
+	render() {
+		return (
+				<div className="form-group">
+
+					<label className={classNames("control-label", this.context.labelLayout)}>
+						<span>{this.props.label}</span>
+					</label>
+
+					<div className={this.context.inputLayout}>
+						<input className="form-control" {...this.props} />
+							<span className="help-block">
+								<div>{this.props.helpMessage}</div>
+							</span>
+					</div>
+
 				</div>
 		)
 	}
@@ -95,18 +129,25 @@ class App extends React.Component {
 
 						<Layout labelLayout="col-xs-2" inputLayout="col-xs-10">
 
-							<Field type="email" label="Email" />
-							<Field type="password" label="Password" />
+							<Panel>
+								<Field type="email" label="Email" />
+								<Field type="password" label="Password" />
+							</Panel>
 
 							<Panel>
+
 								<Layout labelLayout="col-xs-4" inputLayout="col-xs-8">
 									<Field type="email" label="Email" />
 									<Field type="password" label="Password" />
 								</Layout>
-								<hr/>
+
+							</Panel>
+
+							<div className="col-xs-4"></div>
+
+							<Panel className="col-xs-8">
 								<Field type="email" label="Email" />
 								<Field type="password" label="Password" />
-
 							</Panel>
 
 						</Layout>
