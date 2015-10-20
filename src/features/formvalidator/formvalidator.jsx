@@ -80,7 +80,7 @@ class Form extends React.Component {
 	}
 
 	render() {
-		return (<form>{this.props.children}</form>);
+		return (<form {...this.props}>{this.props.children}</form>);
 	}
 }
 
@@ -141,17 +141,20 @@ class Field extends React.Component {
 	}
 	render() {
 		return (
-				<div className="form-group">
+				<div className="form-group has-feedback has-success">
 
 					<label className={classNames("control-label", this.context.labelLayout)}>
 						<span>{this.props.label}</span>
 					</label>
 
 					<div className={this.context.inputLayout}>
-						<input className="form-control" onChange={this.onChange.bind(this)} value={this.state.value} {...this.props} />
-							<span className="help-block">
-								<div>{this.state.message}</div>
-							</span>
+						<input className="form-control"
+						       onChange={this.onChange.bind(this)}
+						       value={this.state.value} {...this.props} />
+						<span className="glyphicon glyphicon-ok form-control-feedback"></span>
+						<div className="help-block">
+							<div>{this.state.message}</div>
+						</div>
 					</div>
 
 				</div>
@@ -184,7 +187,7 @@ class App extends React.Component {
 
 							<Panel>
 
-								<Field name="email" label="Email"
+								<Field name="email" label="Email" type="text"
 								       validate="isEmail"/>
 
 								<Field name="password" type="password" label="Password"
