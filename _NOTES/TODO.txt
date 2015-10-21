@@ -1,9 +1,16 @@
  VALIDATION:
 
- - setup the ability to do server-side
 
+ - FINISH GULP-BABEL-TEST...
 
- - MOVE IT INTO GULP-BABEL-TEST...
+  - setup gulp watch so that it rebuilds and reboots dev server on ALL file changes...
+  - setup three build targets:
+   - server-rendering only
+   - client-rendering only
+   - isomorphic
+
+  - setup server-side form submission handling example.
+  
  - START BUILDING the onboarding form!!!!
 
 
