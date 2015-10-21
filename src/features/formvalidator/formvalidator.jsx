@@ -6,12 +6,15 @@ class Validator {
 
 	constructor(options) {
 
+		this.fields = {};
+
 		this.messages = options.messages || {};
 
 		this.defaultMessages = {
 
 			"isEmail": () => "Please enter a valid email",
 			"password.minLength" : (min) => `Your password must be at least ${min} characters`,
+			"minLength" : (min) => `At least ${min} characters`,
 			"maxLength" : (max) => `No longer than ${max} characters`
 		}
 	}
@@ -30,22 +33,31 @@ class Validator {
 		return "No message specified: " + ruleName;
 	}
 
-	validateField(field, value, cb) {
+	registerField(fieldComponent) {
+		var fieldName = fieldComponent.getName();
+		if (fieldName)
+			this.fields[fieldName] = fieldComponent;
+	}
+	unregisterField(fieldComponent) {
+		delete this.fields[fieldComponent.getName()];
+	}
 
-		console.log('change', value);
+	validateField(fieldName, fieldVal, ruleList, cb) {
 
-		console.log('validate field:', field);
+		console.log('change', fieldVal);
 
-		let rules = field.props.validate.trim().match(/[^ ]+/g); //  .split(/(\s+)/g);
+		console.log('validate field:', fieldName + " : " + fieldVal);
+
+		let rules = ruleList.trim().match(/[^ ]+/g); //  .split(/(\s+)/g);
 		console.log("rules: ", rules);
 		for(let i = 0; i < rules.length; i++) {
 
 			let rule = rules[i], ruleName = null, ruleParam = null;
 			[ruleName, ruleParam] = rule.split(":");
 			console.log("rule name: ", ruleName);
-			if (!validator[ruleName](value, ruleParam)) {
+			if (!validator[ruleName](fieldVal, ruleParam)) {
 
-				let fieldName = field.getName();
+				//let fieldName = field.getName();
 				let message = this.getMessage(fieldName, ruleName, ruleParam);
 
 				cb({success: false, fieldName:fieldName, ruleName:ruleName, message:message });
@@ -69,23 +81,69 @@ class Form extends React.Component {
 		console.log('init validator', this.validator);
 
 	}
-	getValidator() {
-		console.log('get validator', this.validator);
-		return this.validator
+	//getValidator() {
+	//	console.log('get validator', this.validator);
+	//	return this.validator
+	//}
+	withValidator(fnToRun) {
+		var validator = this.validator;
+		if (validator) fnToRun(validator);
 	}
+
 	getChildContext () {
 		return {
-			getValidator: this.getValidator.bind(this)
+			//getValidator: this.getValidator.bind(this),
+			withValidator: this.withValidator.bind(this)
 		}
 	}
 
+	onSubmit(e) {
+
+		e.preventDefault();
+		console.log('submit');
+
+		this.withValidator((validator) => {
+
+			var isValid = true;
+			for(var fieldName in validator.fields) {
+				var field = validator.fields[fieldName];
+				if (!field.canSubmit()) {
+					console.log('INVALID!!!!', fieldName);
+					isValid = false;
+				}
+			}
+			console.log('CAN SUBMIT???', isValid);
+		});
+	}
+
+	onReset(e) {
+		
+		console.log('reset');
+
+		this.withValidator((validator) => {
+
+			for(var fieldName in validator.fields) {
+				validator.fields[fieldName].showAsValid();
+			}
+		});
+	}
+
 	render() {
-		return (<form {...this.props}>{this.props.children}</form>);
+		return (
+				<form onSubmit={this.onSubmit.bind(this)}
+				      onReset={this.onReset.bind(this)}
+
+										{...this.props}>
+
+					{this.props.children}
+				</form>
+		);
 	}
 }
 
 Form.childContextTypes = {
-	getValidator: React.PropTypes.func.isRequired
+	//getValidator: React.PropTypes.func.isRequired,
+	withValidator: React.PropTypes.func.isRequired
 };
 
 class Layout extends React.Component {
@@ -103,7 +161,7 @@ class Layout extends React.Component {
 	}
 
 	render() {
-		return (<div>{this.props.children}</div>);
+		return (<div className="layout-component">{this.props.children}</div>);
 	}
 }
 
@@ -128,17 +186,89 @@ class Field extends React.Component {
 		this.setState({message: msg})
 	}
 
+	withValidator(fnToRun) {
+		//this.context.withValidator((validator) => fnToRun(validator));
+		this.context.withValidator(fnToRun);
+		//var validator = this.context.getValidator();
+		//if (validator) fnToRun(validator);
+	}
+
+	tryValidation(fieldVal, ruleAttrs) {
+
+		this.showAsValid();
+		//console.log('rule attrs: ', ruleAttrs);
+
+		var ruleList = ruleAttrs.filter(n => n != undefined);
+		//console.log('rule list - filter: ', ruleList);
+		ruleList = ruleList.join(' ');
+		//console.log('rule list - join: ', ruleList);
+
+		if (!ruleList) return true;
+
+
+
+		var fieldName = this.getName();
+
+		var isValid = true;
+		this.withValidator((validator) =>
+				validator.validateField(fieldName, fieldVal, ruleList, (result) => {
+
+					if (!result.success) {
+						isValid = false;
+						this.showAsInvalid(result.message);
+					}
+				})
+		);
+
+		return isValid;
+	}
+
+	showAsValid() {
+		this.setMessage("");
+	}
+
+	showAsInvalid(msg) {
+		this.setMessage(msg);
+	}
+
+	componentDidMount () {
+		this.withValidator((validator) => validator.registerField(this))
+	}
+	componentWillUnmount() {
+		this.withValidator((validator) => validator.unregisterField(this))
+	}
+
 	onChange(e) {
 
-		var value = e.target.value;
-		this.setState({value: value});
+		var fieldVal = e.target.value;
+		this.setState({value: fieldVal});
 
-		this.context.getValidator().validateField(this, value, (result) => {
-			this.setMessage((result.success) ? "" : result.message);
-			console.log("result", result);
-		});
-
+		var ruleList = [this.props.validateOnChange];
+		this.tryValidation(fieldVal, ruleList);
 	}
+
+	onBlur(e) {
+
+		var fieldVal = e.target.value;
+		//this.setState({value: fieldVal});
+
+		var p = this.props;
+		var ruleList = [p.validateOnBlur, p.validateOnChange];
+
+		this.tryValidation(fieldVal, ruleList);
+	}
+
+	canSubmit() { // - event is triggered by form....
+
+		var fieldVal = this.state.value;
+
+		var p = this.props;
+		var ruleList = [p.validateOnSubmit, p.validateOnBlur, p.validateOnChange];
+
+		return this.tryValidation(fieldVal, ruleList);
+	}
+
+
 	render() {
 		return (
 				<div className="form-group has-feedback has-success">
@@ -150,7 +280,9 @@ class Field extends React.Component {
 					<div className={this.context.inputLayout}>
 						<input className="form-control"
 						       onChange={this.onChange.bind(this)}
+						       onBlur={this.onBlur.bind(this)}
 						       value={this.state.value} {...this.props} />
+
 						<span className="glyphicon glyphicon-ok form-control-feedback"></span>
 						<div className="help-block">
 							<div>{this.state.message}</div>
@@ -164,12 +296,15 @@ class Field extends React.Component {
 
 Field.contextTypes = {
 
-	getValidator: React.PropTypes.func.isRequired,
+	withValidator: React.PropTypes.func.isRequired,
 
 	labelLayout: React.PropTypes.string.isRequired,
 	inputLayout: React.PropTypes.string.isRequired
 };
 
+function TestElement(props) {
+	return <div>Test element:{props.val}</div>
+}
 class App extends React.Component {
 
 
@@ -177,21 +312,46 @@ class App extends React.Component {
 
 		var formValidator = new Validator({});
 
-		var { Panel } = ReactBootstrap;
+		var { ButtonInput, Panel, Button, ButtonToolbar } = ReactBootstrap;
 		return (
 				<Panel>
+					<ButtonToolbar>
+						{/* Standard button */}
+						<Button>Default</Button>
 
-					<Form className="form-horizontal" ref="form" validator={formValidator}>
+						{/* Provides extra visual weight and identifies the primary action in a set of buttons */}
+						<Button bsStyle="primary">Primary</Button>
 
-						<Layout labelLayout="col-xs-2" inputLayout="col-xs-10">
+						{/* Indicates a successful or positive action */}
+						<Button bsStyle="success">Success</Button>
+
+						{/* Contextual button for informational alert messages */}
+						<Button bsStyle="info">Info</Button>
+
+						{/* Indicates caution should be taken with this action */}
+						<Button bsStyle="warning">Warning</Button>
+
+						{/* Indicates a dangerous or potentially negative action */}
+						<Button bsStyle="danger">Danger</Button>
+
+						{/* Deemphasize a button by making it look like a link while maintaining button behavior */}
+						<Button bsStyle="link">Link</Button>
+					</ButtonToolbar>
+
+					<TestElement val="wah?!?!" />
+					<Form method="post" className="form-horizontal" ref="form" validator={formValidator}>
+
+						<Layout labelLayout="col-xs-4 col-sm-2" inputLayout="col-xs-8 col-sm-10">
 
 							<Panel>
 
 								<Field name="email" label="Email" type="text"
-								       validate="isEmail"/>
+								       validateOnChange="isEmail"
+								       validateOnBlur="minLength:3 isEmail"
+								/>
 
 								<Field name="password" type="password" label="Password"
-								       validate="minLength:3 maxLength:6" />
+								       validateOnBlur="minLength:3 maxLength:6" />
 
 							</Panel>
 
@@ -199,22 +359,38 @@ class App extends React.Component {
 
 								<Layout labelLayout="col-xs-4" inputLayout="col-xs-8">
 
-									<Field type="email" label="Email Two" />
-									<Field type="password" label="Password Two" />
+									<Field name="email2" type="email" label="Email Two"
+									       validateOnChange="isEmail"/>
+
+									<Field name="password2" type="password" label="Password Two"
+									       validateOnChange="minLength:3 maxLength:6"/>
 
 								</Layout>
 
 							</Panel>
 
-							<div className="col-xs-4"></div>
 
-							<Panel className="col-xs-8">
+
+							<Panel>
 								<Field type="email" label="Email Three" />
 								<Field type="password" label="Password Three" />
 							</Panel>
 
 						</Layout>
 
+						<ButtonToolbar>
+							<div className="col-sm-6">
+								<ButtonInput type="reset" value="Reset Button"
+								             className="col-xs-offset-3 col-xs-6"
+								             bsStyle="danger"/>
+							</div>
+							<div className="col-sm-6">
+								<ButtonInput type="submit" value="Submit Button"
+								             className="col-xs-offset-3 col-xs-6"
+								             bsStyle="success"/>
+							</div>
+
+						</ButtonToolbar>
 					</Form>
 
 				</Panel>
