@@ -1,15 +1,22 @@
 
-validator.extend('minLength', (str, min) =>  validator.isLength(str, min));
-validator.extend('maxLength', (str, max) =>  validator.isLength(str, 0, max));
+validator.extend('minLength', (val, min) =>  validator.isLength(val, min));
+validator.extend('maxLength', (val, max) =>  validator.isLength(val, 0, max));
 
-validator.extend('confirmPass', (confVal, passFieldName, validator) => {
+validator.extend('confirmPass', (val, passFieldName, ctx) => {
 
-	console.log("confPass - this: ",validator);
-	console.log("confPass - fieldName: ",passFieldName);
+	return val == ctx.validator.getField(passFieldName).getValue();
+});
 
-	var passVal = validator.fields[passFieldName].getValue();
-	console.log("confirm pass", passVal);
-	return confVal == validator.fields[passFieldName].getValue();
+validator.extend('serverFake', (val, url, ctx) => {
+
+	return (cb) => {
+		setTimeout(function() {
+			cb(false);
+			//var msg = ctx.validator.getMessage(ctx.fieldName, ctx.ruleName);
+			//ctx.validator.getField(ctx.fieldName).showAsInvalid(msg);
+
+		}, 1000);
+	};
 });
 
 class Validator {
@@ -26,7 +33,8 @@ class Validator {
 			"password.minLength" : (min) => `Your password must be at least ${min} characters`,
 			"minLength" : (min) => `At least ${min} characters`,
 			"maxLength" : (max) => `No longer than ${max} characters`,
-			"confirmPass" : () => "This does not match your password"
+			"confirmPass" : () => "This does not match your password",
+			"serverFake" : () => "Fake server error"
 		}
 	}
 
@@ -53,33 +61,73 @@ class Validator {
 		delete this.fields[fieldComponent.getName()];
 	}
 
+	listFields() {
+		return this.fields;
+	}
+	getField(fieldName) {
+		return this.fields[fieldName];
+	}
+
 	validateField(fieldName, fieldVal, ruleList, cb) {
 
-		console.log('change', fieldVal);
+		var self = this;
+		console.log(validator);
 
-		console.log('validate field:', fieldName + " : " + fieldVal);
+		var rules = ruleList.trim().match(/[^ ]+/g);
 
-		let rules = ruleList.trim().match(/[^ ]+/g); //  .split(/(\s+)/g);
-		console.log("rules: ", rules);
+		var awaitingAsync = false;
+		// - TODO: come up with a better/cleaner approach (PROMISES?)
+		// - in the mean time, the async should always be the last thing called...
+		// - and used in simple scenarios...
+
 		for(let i = 0; i < rules.length; i++) {
 
-			let rule = rules[i], ruleName = null, ruleParam = null;
-			[ruleName, ruleParam] = rule.split(":");
+			let rule = rules[i],  ruleName = null, ruleParam = null;
 
-			console.log("rule name: ", ruleName);
+				[ruleName, ruleParam] = rule.split(":");
 
-			if (!validator[ruleName](fieldVal, ruleParam, this)) {
+
+			let ctx = {
+				validator: self, fieldName: fieldName,
+				ruleName: ruleName, ruleParam: ruleParam
+			};
+
+			let validateRule = validator[ruleName](fieldVal, ruleParam, ctx);
+			let message = this.getMessage(fieldName, ruleName, ruleParam);
+
+			if (typeof validateRule === 'function') {
+
+				awaitingAsync = true;
+				self.getField(fieldName).showAsClean();
+
+				validateRule((isValid) => {
+
+					if (isValid) {
+						cb({success: true});
+					} else {
+						//var msg = self.getMessage(fieldName, ruleName, ruleParam);
+						//self.getField(fieldName).showAsInvalid(msg);
+
+						cb({success: false, fieldName:fieldName, ruleName:ruleName, message:message });
+
+					}
+				});
+
+			}
+			else if (validateRule === false) {
 
 				//let fieldName = field.getName();
-				let message = this.getMessage(fieldName, ruleName, ruleParam);
+				//let message = this.getMessage(fieldName, ruleName, ruleParam);
 
 				cb({success: false, fieldName:fieldName, ruleName:ruleName, message:message });
 				return;
 			}
 
 		}
-
-		cb({success: true});
+		if (!awaitingAsync) {
+			console.log('call back: success = true')
+			cb({success: true});
+		}
 		return;
 	}
 }
@@ -114,8 +162,8 @@ class Form extends React.Component {
 		this.withValidator((validator) => {
 
 			var isValid = true;
-			for(var fieldName in validator.fields) {
-				var field = validator.fields[fieldName];
+			for(var fieldName in validator.listFields()) {
+				var field = validator.getField(fieldName);
 				if (!field.canSubmit()) {
 					console.log('INVALID!!!!', fieldName);
 					isValid = false;
@@ -131,8 +179,8 @@ class Form extends React.Component {
 
 		this.withValidator((validator) => {
 
-			for(var fieldName in validator.fields) {
-				validator.fields[fieldName].showAsClean();
+			for(var fieldName in validator.listFields()) {
+				validator.getField(fieldName).showAsClean();
 			}
 		});
 	}
@@ -218,15 +266,20 @@ class Field extends React.Component {
 		var isValid = true;
 		this.withValidator((validator) =>
 				validator.validateField(fieldName, fieldVal, ruleList, (result) => {
+					console.log("RESUOLT", result);
 
-					if (!result.success) {
+					if (result.success) {
+						console.log('isValid - showAsValid');
+						this.showAsValid();
+					}
+					else {
 						isValid = false;
 						this.showAsInvalid(result.message);
 					}
 				})
 		);
-		if (isValid) this.showAsValid();
-		return isValid;
+
+		return isValid; // - only used during submit....
 	}
 
 	showAsClean() {
@@ -389,13 +442,12 @@ class App extends React.Component {
 
 							<Panel>
 
-								<Field name="email" label="Email" type="text"
-								       validateOnChange="isEmail"
-								       validateOnBlur="minLength:3 isEmail"
+								<Field name="company" type="text" label="Company"
+								       validateOnBlur="minLength:3"
 								/>
 
-								<Field name="password" type="password" label="Password"
-								       validateOnBlur="minLength:3 maxLength:6" />
+								<Field name="fake" type="text" label="Handle"
+								       validateOnChange="serverFake" />
 
 							</Panel>
 
@@ -403,7 +455,7 @@ class App extends React.Component {
 
 								<Layout labelLayout="col-xs-4" inputLayout="col-xs-8">
 
-									<Field name="email2" type="email" label="Email Two"
+									<Field name="email2" type="text" label="Email Two"
 									       validateOnChange="isEmail"/>
 
 									<Field name="password2" type="password" label="Password Two"

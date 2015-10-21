@@ -5,3 +5,32 @@
 
  - MOVE IT INTO GULP-BABEL-TEST...
  - START BUILDING the onboarding form!!!!
+
+
+
+ BULLET-PROOF ASYNC VALIDATION:
+
+ To really do this right, we'll probably need to setup a validation-status for each field:
+  - clean, valid, invalid, pending (pending = currently processing async).
+
+ FieldValidator - new class that handles rules and validation-status at the field level...
+
+  - while looping through validation rules:
+  1. it should always loop through ALL rules - even though it will only report the first error.
+  2. as soon as ANY error occurs, it will immediately show that error - even if there are still async rules pending.
+   - the assumption is that async rules are generally going to be unique checks, while sync rules are data-formatting checks.
+   - in general, the formatting-checks should be listed first.
+
+
+*NOTE: it looks like $.when / Deferred should handle the above (and cancel with the first failure).
+
+FormValidator - onSubmit....
+ - it should first check all fields to determine whether they're already valid...
+ - if they are, then there's no point in re-checking.
+ - if any are invalid, there's also no point in re-checking...
+ - if any are clean, it will trigger an immediate check for these ones.
+ - if any are pending, it will request a callback on completion...
+
+
+existing validation library - should be wrapped as "basic rules"?
+ - they should be wrapped in a way that the true/false response is sent as a callback instead...
