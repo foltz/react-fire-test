@@ -1,9 +1,7 @@
  VALIDATION:
- - setup the error colors and icons for invalid elements...
- - configure event to trigger onchange or onblur - different rules for both?
+
  - setup the ability to do server-side
- - setup the ability to do multi-field.
- - setup overall form validation status and visual indicator
+
 
  - MOVE IT INTO GULP-BABEL-TEST...
  - START BUILDING the onboarding form!!!!

@@ -2,6 +2,16 @@
 validator.extend('minLength', (str, min) =>  validator.isLength(str, min));
 validator.extend('maxLength', (str, max) =>  validator.isLength(str, 0, max));
 
+validator.extend('confirmPass', (confVal, passFieldName, validator) => {
+
+	console.log("confPass - this: ",validator);
+	console.log("confPass - fieldName: ",passFieldName);
+
+	var passVal = validator.fields[passFieldName].getValue();
+	console.log("confirm pass", passVal);
+	return confVal == validator.fields[passFieldName].getValue();
+});
+
 class Validator {
 
 	constructor(options) {
@@ -15,7 +25,8 @@ class Validator {
 			"isEmail": () => "Please enter a valid email",
 			"password.minLength" : (min) => `Your password must be at least ${min} characters`,
 			"minLength" : (min) => `At least ${min} characters`,
-			"maxLength" : (max) => `No longer than ${max} characters`
+			"maxLength" : (max) => `No longer than ${max} characters`,
+			"confirmPass" : () => "This does not match your password"
 		}
 	}
 
@@ -54,8 +65,10 @@ class Validator {
 
 			let rule = rules[i], ruleName = null, ruleParam = null;
 			[ruleName, ruleParam] = rule.split(":");
+
 			console.log("rule name: ", ruleName);
-			if (!validator[ruleName](fieldVal, ruleParam)) {
+
+			if (!validator[ruleName](fieldVal, ruleParam, this)) {
 
 				//let fieldName = field.getName();
 				let message = this.getMessage(fieldName, ruleName, ruleParam);
@@ -81,20 +94,16 @@ class Form extends React.Component {
 		console.log('init validator', this.validator);
 
 	}
-	//getValidator() {
-	//	console.log('get validator', this.validator);
-	//	return this.validator
-	//}
-	withValidator(fnToRun) {
-		var validator = this.validator;
-		if (validator) fnToRun(validator);
-	}
 
 	getChildContext () {
 		return {
-			//getValidator: this.getValidator.bind(this),
 			withValidator: this.withValidator.bind(this)
 		}
+	}
+
+	withValidator(fnToRun) {
+		var validator = this.validator;
+		if (validator) fnToRun(validator);
 	}
 
 	onSubmit(e) {
@@ -117,13 +126,13 @@ class Form extends React.Component {
 	}
 
 	onReset(e) {
-		
+
 		console.log('reset');
 
 		this.withValidator((validator) => {
 
 			for(var fieldName in validator.fields) {
-				validator.fields[fieldName].showAsValid();
+				validator.fields[fieldName].showAsClean();
 			}
 		});
 	}
@@ -142,7 +151,6 @@ class Form extends React.Component {
 }
 
 Form.childContextTypes = {
-	//getValidator: React.PropTypes.func.isRequired,
 	withValidator: React.PropTypes.func.isRequired
 };
 
@@ -174,20 +182,18 @@ class Field extends React.Component {
 
 	constructor(props) {
 		super(props);
-		this.state = {value: props.value || '', message: ''};
+		this.state = {value: props.value || '', message: '', showAs: 'clean'};
 	}
-	getName() {
-		return this.props.name
-	}
-	getValue() {
-		return this.state.value
-	}
-	setMessage(msg) {
-		this.setState({message: msg})
-	}
+	getName() { return this.props.name }
+	getValue() { return this.state.value }
+
+	setMessage(msg) { this.setState({message: msg}) }
+
+	getShowAs() { return this.state.showAs }
+	setShowAs(showAs) { this.setState({showAs: showAs}) }
 
 	withValidator(fnToRun) {
-		//this.context.withValidator((validator) => fnToRun(validator));
+
 		this.context.withValidator(fnToRun);
 		//var validator = this.context.getValidator();
 		//if (validator) fnToRun(validator);
@@ -195,7 +201,7 @@ class Field extends React.Component {
 
 	tryValidation(fieldVal, ruleAttrs) {
 
-		this.showAsValid();
+		this.showAsClean();
 		//console.log('rule attrs: ', ruleAttrs);
 
 		var ruleList = ruleAttrs.filter(n => n != undefined);
@@ -219,17 +225,26 @@ class Field extends React.Component {
 					}
 				})
 		);
-
+		if (isValid) this.showAsValid();
 		return isValid;
+	}
+
+	showAsClean() {
+		this.setMessage("");
+		this.setShowAs('clean');
 	}
 
 	showAsValid() {
 		this.setMessage("");
+		this.setShowAs('valid');
 	}
 
 	showAsInvalid(msg) {
 		this.setMessage(msg);
+		this.setShowAs('invalid');
 	}
+
+
 
 	componentDidMount () {
 		this.withValidator((validator) => validator.registerField(this))
@@ -270,20 +285,49 @@ class Field extends React.Component {
 
 
 	render() {
+
+		var feedbackIconClass = () => {
+
+			var icon = null;
+
+			switch(this.getShowAs()) {
+
+				case 'valid': icon = "glyphicon-ok"; break;
+				case 'invalid': icon = "glyphicon-remove"; break;
+				//default: icon = "glyphicon-warning-sign"; break;
+			}
+			return classNames("glyphicon form-control-feedback", icon);
+		};
+
+		var feedbackGroupClass = () => {
+
+			var icon = null;
+
+			switch(this.getShowAs()) {
+
+				case 'valid': icon = "has-success"; break;
+				case 'invalid': icon = "has-error"; break;
+				//default: icon = "has-warning"; break;
+			}
+			return (icon) ? classNames("has-feedback", icon) : "";
+		};
+
 		return (
-				<div className="form-group has-feedback has-success">
+				<div className={classNames("form-group", feedbackGroupClass())}>
 
 					<label className={classNames("control-label", this.context.labelLayout)}>
 						<span>{this.props.label}</span>
 					</label>
 
 					<div className={this.context.inputLayout}>
+
 						<input className="form-control"
 						       onChange={this.onChange.bind(this)}
 						       onBlur={this.onBlur.bind(this)}
 						       value={this.state.value} {...this.props} />
 
-						<span className="glyphicon glyphicon-ok form-control-feedback"></span>
+						<span className={feedbackIconClass()}></span>
+
 						<div className="help-block">
 							<div>{this.state.message}</div>
 						</div>
@@ -364,6 +408,9 @@ class App extends React.Component {
 
 									<Field name="password2" type="password" label="Password Two"
 									       validateOnChange="minLength:3 maxLength:6"/>
+
+									<Field name="confPass" type="password" label="Confirm Password Two"
+									       validateOnChange="confirmPass:password2"/>
 
 								</Layout>
 
